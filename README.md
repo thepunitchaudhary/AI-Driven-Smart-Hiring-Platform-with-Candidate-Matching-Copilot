@@ -187,7 +187,3 @@ The parser was tested on generated PDF and DOCX resumes with known correct answe
 | 2 | Job description analysis, candidate matching, skill gap analysis | Planned |
 | 3 | Interview question generation, AI interview simulation | Planned |
 | 4 | Voice screening, recruitment analytics dashboard, ATS integration | Planned |
-
-## Author
-
-Punit Kumar
