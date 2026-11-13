@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-multipart
+pdfplumber
+python-docx
+sqlalchemy>=2.0
+psycopg[binary]
+PyJWT
+python-dotenv
