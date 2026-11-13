@@ -168,18 +168,6 @@ You can also create your own account on the login page.
         └── api.js             # Calls to the backend
 ```
 
-## Screenshots
-
-Add your images to `docs/screenshots/` with these names.
-
-| Login portals | Resume upload |
-|---|---|
-| ![Login](docs/screenshots/login.png) | ![Upload](docs/screenshots/upload.png) |
-
-| Recruiter dashboard | Candidates list |
-|---|---|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Candidates](docs/screenshots/candidates.png) |
-
 ## Parser accuracy
 
 The parser was tested on generated PDF and DOCX resumes with known correct answers, and scored above the 95% target in the milestone. These test resumes are generated, so real resumes with unusual layouts may score lower. See `ACCURACY_REPORT.md` for the method and results.
