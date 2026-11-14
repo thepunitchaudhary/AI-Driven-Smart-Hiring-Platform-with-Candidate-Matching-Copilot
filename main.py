@@ -7,8 +7,7 @@ from pydantic import BaseModel
 from resume_parser import parse_resume, calculate_accuracy
 from database import save_candidate
 from queries import get_all_candidates, get_stats, delete_candidate
-from auth import (register_user, authenticate, seed_demo_users,
-                  current_user, require_roles)
+from auth import register_user, authenticate, current_user, require_roles
 
 app = FastAPI(title="AI Recruitment Copilot")
 
@@ -21,7 +20,6 @@ app.add_middleware(
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-seed_demo_users()
 
 
 class LoginBody(BaseModel):

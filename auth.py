@@ -12,12 +12,6 @@ from database import Base, engine, Session
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-secret-key-please-set-your-own-in-env-file")
 ROLES = ["recruiter", "hr", "candidate"]
 
-DEMO_USERS = [
-    ("Rita Recruiter", "recruiter@demo.com", "demo123", "recruiter"),
-    ("Harry HR Manager", "hr@demo.com", "demo123", "hr"),
-    ("Candy Candidate", "candidate@demo.com", "demo123", "candidate"),
-]
-
 
 class User(Base):
     __tablename__ = "users"
@@ -78,14 +72,6 @@ def authenticate(email, password, role):
         if not verify_password(password, user.password_hash):
             return None
         return user_to_dict(user), create_token(user)
-
-
-def seed_demo_users():
-    for name, email, password, role in DEMO_USERS:
-        try:
-            register_user(name, email, password, role)
-        except ValueError:
-            pass
 
 
 security = HTTPBearer(auto_error=False)

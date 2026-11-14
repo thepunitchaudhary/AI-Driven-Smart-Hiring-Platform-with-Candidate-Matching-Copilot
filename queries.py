@@ -25,6 +25,8 @@ def row_to_dict(row):
         "experience": row.experience,
         "education": json.loads(row.education or "[]"),
         "skills": json.loads(row.skills or "[]"),
+        "projects": json.loads(row.projects or "[]"),
+        "certifications": json.loads(row.certifications or "[]"),
         "accuracy": accuracy_of(row),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }

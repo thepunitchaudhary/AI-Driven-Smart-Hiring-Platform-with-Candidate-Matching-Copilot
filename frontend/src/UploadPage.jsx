@@ -55,7 +55,7 @@ function UploadPage({ role, stats, candidates, onChange, onDelete }) {
   const isCandidate = role === "candidate";
   const busy = queue.length > 0 && finished < queue.length;
   const progress = busy ? Math.round((finished / queue.length) * 100) : isCandidate ? (last ? last.extraction_accuracy : 0) : stats.average_accuracy;
-  const profile = last ? last.profile : null;
+  const profile = last ? last.profile : (candidates[0] || null);
 
   return (
     <>
@@ -101,7 +101,7 @@ function UploadPage({ role, stats, candidates, onChange, onDelete }) {
         <section className="card">
           <h2>Parsing Progress</h2>
           <div className="progress-head">
-            <span>Extraction Progress</span><strong>{progress}%</strong>
+            <span>{busy ? "Parsing files" : "Average fields found"}</span><strong>{progress}%</strong>
           </div>
           <div className="progress"><div style={{ width: progress + "%" }} /></div>
 
@@ -109,7 +109,7 @@ function UploadPage({ role, stats, candidates, onChange, onDelete }) {
           <div className="mini-stats">
             <div><strong>{stats.total}</strong><small>Resumes Processed</small></div>
             <div><strong>{stats.average_accuracy}%</strong><small>Fields Found</small></div>
-            <div><strong>{stats.complete_profiles}</strong><small>Profiles Created</small></div>
+            <div><strong>{stats.complete_profiles}</strong><small>Complete Profiles</small></div>
           </div>
           )}
 

@@ -122,17 +122,9 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-## Demo accounts
+## Creating accounts
 
-These accounts are created automatically when the backend starts. The password for all of them is `demo123`.
-
-| Portal | Email |
-|---|---|
-| Recruiter | recruiter@demo.com |
-| HR Manager | hr@demo.com |
-| Candidate | candidate@demo.com |
-
-You can also create your own account on the login page.
+Open the login page, choose a portal (Recruiter, HR Manager or Candidate), click **New here? Create account**, and sign up with your name, email and a password of at least 6 characters. Then sign in with the same portal.
 
 ## API endpoints
 
@@ -168,6 +160,18 @@ You can also create your own account on the login page.
         └── api.js             # Calls to the backend
 ```
 
+## Screenshots
+
+Add your images to `docs/screenshots/` with these names.
+
+| Login portals | Resume upload |
+|---|---|
+| ![Login](docs/screenshots/login.png) | ![Upload](docs/screenshots/upload.png) |
+
+| Recruiter dashboard | Candidates list |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Candidates](docs/screenshots/candidates.png) |
+
 ## Parser accuracy
 
 The parser was tested on generated PDF and DOCX resumes with known correct answers, and scored above the 95% target in the milestone. These test resumes are generated, so real resumes with unusual layouts may score lower. See `ACCURACY_REPORT.md` for the method and results.
@@ -187,3 +191,7 @@ The parser was tested on generated PDF and DOCX resumes with known correct answe
 | 2 | Job description analysis, candidate matching, skill gap analysis | Planned |
 | 3 | Interview question generation, AI interview simulation | Planned |
 | 4 | Voice screening, recruitment analytics dashboard, ATS integration | Planned |
+
+## Author
+
+Punit Kumar

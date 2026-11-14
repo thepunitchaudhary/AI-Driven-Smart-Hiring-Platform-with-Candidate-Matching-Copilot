@@ -168,3 +168,10 @@ nav { flex: 1; }
   .login-hero { padding: 28px; }
   .sidebar { flex-direction: column; }
 }
+
+tr.clickable { cursor: pointer; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: grid; place-items: center; padding: 20px; z-index: 50; }
+.modal { background: white; width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto; border-radius: 14px; padding: 24px; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25); }
+.modal-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.modal-head h2 { margin: 0 0 4px; font-size: 20px; }
+.modal-head small { color: var(--muted); font-size: 13px; }

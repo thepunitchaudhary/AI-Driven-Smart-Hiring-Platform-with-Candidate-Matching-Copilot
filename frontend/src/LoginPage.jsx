@@ -3,9 +3,9 @@ import { Briefcase, ShieldCheck, User, LogIn, FileText, Users, BarChart3 } from 
 import { login, register } from "./api";
 
 const PORTALS = [
-  { id: "recruiter", label: "Recruiter", icon: Briefcase, text: "Upload resumes, review candidates and manage job postings", email: "recruiter@demo.com" },
-  { id: "hr", label: "HR Manager", icon: ShieldCheck, text: "View hiring analytics, approve candidates and get reports", email: "hr@demo.com" },
-  { id: "candidate", label: "Candidate", icon: User, text: "Upload your resume and build your candidate profile", email: "candidate@demo.com" },
+  { id: "recruiter", label: "Recruiter", icon: Briefcase, text: "Upload resumes, review candidates and manage job postings" },
+  { id: "hr", label: "HR Manager", icon: ShieldCheck, text: "View hiring analytics, approve candidates and get reports" },
+  { id: "candidate", label: "Candidate", icon: User, text: "Upload your resume and build your candidate profile" },
 ];
 
 function LoginPage({ onLogin }) {
@@ -32,12 +32,6 @@ function LoginPage({ onLogin }) {
       setError(err.message === "Failed to fetch" ? "Cannot connect to the backend" : err.message);
     }
     setLoading(false);
-  }
-
-  function fillDemo() {
-    setSignup(false);
-    setEmail(portal.email);
-    setPassword("demo123");
   }
 
   return (
@@ -92,7 +86,6 @@ function LoginPage({ onLogin }) {
             <button type="button" className="link" onClick={() => { setSignup(!signup); setError(""); }}>
               {signup ? "Already have an account? Sign in" : "New here? Create account"}
             </button>
-            <button type="button" className="link" onClick={fillDemo}>Use demo account</button>
           </div>
         </form>
       </div>
