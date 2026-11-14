@@ -162,13 +162,11 @@ Open the login page, choose a portal (Recruiter, HR Manager or Candidate), click
 
 ## Screenshots
 
-Add your images to `docs/screenshots/` with these names.
-
-| Login portals | Resume upload |
+| Login portals | Resume upload (Recruiter) |
 |---|---|
 | ![Login](docs/screenshots/login.png) | ![Upload](docs/screenshots/upload.png) |
 
-| Recruiter dashboard | Candidates list |
+| Dashboard (HR Manager) | Candidates list (HR Manager) |
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Candidates](docs/screenshots/candidates.png) |
 
