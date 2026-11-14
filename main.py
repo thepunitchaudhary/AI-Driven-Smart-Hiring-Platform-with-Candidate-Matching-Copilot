@@ -66,7 +66,7 @@ def me(user=Depends(current_user)):
 
 
 @app.post("/api/upload_resume")
-async def upload_resume(file: UploadFile = File(...), user=Depends(current_user)):
+async def upload_resume(file: UploadFile = File(...), user=Depends(require_roles("recruiter", "candidate"))):
     if not file.filename.lower().endswith((".pdf", ".docx")):
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are allowed")
 
