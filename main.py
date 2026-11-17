@@ -4,9 +4,9 @@ import uuid
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from resume_parser import parse_resume, calculate_accuracy
+from parser.resume_parser import parse_resume, calculate_accuracy, build_final_json
 from database import save_candidate
-from queries import get_all_candidates, get_stats, delete_candidate
+from queries import get_all_candidates, get_stats, delete_candidate, get_final_profile
 from auth import register_user, authenticate, current_user, require_roles
 
 app = FastAPI(title="AI Recruitment Copilot")
@@ -85,6 +85,7 @@ async def upload_resume(file: UploadFile = File(...), user=Depends(require_roles
         "candidate_id": candidate_id,
         "filename": file.filename,
         "profile": profile,
+        "candidate_profile": build_final_json(profile, candidate_id),
         "extraction_accuracy": accuracy,
     }
 
@@ -92,6 +93,14 @@ async def upload_resume(file: UploadFile = File(...), user=Depends(require_roles
 @app.get("/api/candidates")
 def candidates(user=Depends(require_roles("recruiter", "hr"))):
     return get_all_candidates()
+
+
+@app.get("/api/candidates/{candidate_id}/profile")
+def candidate_profile(candidate_id: int, user=Depends(require_roles("recruiter", "hr"))):
+    profile = get_final_profile(candidate_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    return profile
 
 
 @app.get("/api/stats")

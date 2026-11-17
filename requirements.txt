@@ -7,3 +7,5 @@ sqlalchemy>=2.0
 psycopg[binary]
 PyJWT
 python-dotenv
+spacy
+rapidfuzz

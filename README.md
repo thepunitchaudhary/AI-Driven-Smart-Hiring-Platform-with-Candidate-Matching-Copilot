@@ -21,30 +21,37 @@ A web platform that reads candidate resumes (PDF and DOCX), extracts the key det
 | Frontend | React (Vite), lucide-react icons |
 | Backend | FastAPI (Python) |
 | Database | PostgreSQL with SQLAlchemy |
-| Resume parsing | pdfplumber, python-docx, regular expressions |
+| Resume parsing | pdfplumber, python-docx, rules, spaCy, rapidfuzz, a 570+ skill list |
 | Authentication | PyJWT, PBKDF2 password hashing |
 
 ## How it works
 
 ```
-React website  -->  FastAPI backend  -->  Resume parser  -->  PostgreSQL
- (login, upload,     (login, upload,      (text extraction,    (candidates,
-  dashboard)          candidates API)      rule-based fields)   users)
+React website --> FastAPI backend --> Resume parser --> PostgreSQL
+ (login, upload,    (login, upload,    PDF/DOCX reader, then      (candidates,
+  dashboard)         candidates API)   contact, skills, education   users)
+                                       and experience extraction
 ```
 
 1. A user uploads a PDF or DOCX resume.
 2. The text is extracted from the file.
-3. Rules find each field: section headings, patterns for email and phone, a skills list, and date ranges for experience.
-4. The result is saved as a structured profile in the database.
+3. Each field is found with rules: section headings, patterns for email and phone, date ranges for experience, and a skills list with more than 570 skills.
+4. spaCy NER helps when the rules cannot find a name, a location or a college. rapidfuzz matches skills written in different ways, such as `MachineLearning`, `Scikit Learn` or `ML`.
+5. The result is saved as a structured profile in the database.
 
-Example profile:
+Example profile returned as `candidate_profile`:
 
 ```json
 {
+  "candidate_id": "C001",
   "name": "John Doe",
-  "email": "abc@gmail.com",
-  "skills": ["Python", "SQL", "Machine Learning"],
-  "experience": "4 years"
+  "email": "john@gmail.com",
+  "phone": "9876543210",
+  "skills": ["Python", "FastAPI", "SQL", "Docker"],
+  "education": [{"degree": "B.Tech", "college": "VTU", "year": "2022"}],
+  "experience_years": 3,
+  "projects": ["AI Hiring System"],
+  "certifications": ["AWS Practitioner"]
 }
 ```
 
@@ -105,6 +112,7 @@ python -m venv myvenv
 myvenv\Scripts\activate        # Windows
 # source myvenv/bin/activate   # macOS / Linux
 pip install -r requirements.txt
+python -m spacy download en_core_web_sm
 uvicorn main:app --reload
 ```
 
@@ -136,50 +144,72 @@ Open the login page, choose a portal (Recruiter, HR Manager or Candidate), click
 | POST | `/api/upload_resume` | Any logged-in user |
 | GET | `/api/candidates` | Recruiter, HR Manager |
 | GET | `/api/stats` | Recruiter, HR Manager |
+| GET | `/api/candidates/{id}/profile` | Recruiter, HR Manager |
 | DELETE | `/api/candidates/{id}` | Recruiter |
 
 ## Project structure
 
 ```
 .
-├── main.py              # FastAPI app and API routes
-├── auth.py              # Login, registration, roles, JWT tokens
-├── database.py          # Database connection and Candidate table
-├── queries.py           # Candidate list, stats and delete
-├── resume_parser.py     # PDF/DOCX reading and field extraction
-├── requirements.txt     # Python packages
-├── .env.example         # Example settings (copy to .env)
-├── dataset/             # Sample resumes for testing (not uploaded to Git)
-├── uploads/             # Resumes saved by the backend (not uploaded to Git)
-└── frontend/
-    └── src/
-        ├── App.jsx            # Layout, navigation, role-based pages
-        ├── LoginPage.jsx      # Three-portal login screen
-        ├── UploadPage.jsx     # Resume upload and parsing results
-        ├── CandidateTable.jsx # Candidate list
-        └── api.js             # Calls to the backend
+├── main.py                  # FastAPI app and API routes
+├── auth.py                  # Login, registration, roles, JWT tokens
+├── queries.py               # Candidate list, stats, final profile JSON, delete
+├── requirements.txt         # Python packages
+├── .env.example             # Example settings (copy to .env)
+├── parser/
+│   ├── pdf_parser.py        # Reads text from PDF files
+│   ├── docx_parser.py       # Reads text from DOCX files
+│   └── resume_parser.py     # Combines all extractors into one profile
+├── extraction/
+│   ├── contact_extractor.py    # Name, email, phone, location
+│   ├── skill_extractor.py      # Skill matching, aliases, fuzzy matching
+│   ├── education_extractor.py  # Degree, college, year
+│   ├── experience_extractor.py # Years of experience from dates
+│   ├── section_extractor.py    # Finds Education, Skills, Projects sections
+│   └── nlp_model.py            # Loads the spaCy model
+├── database/
+│   ├── db.py                # Database connection
+│   └── models.py            # Candidate table and save function
+├── skills/
+│   └── skills.csv           # 570+ skills with aliases
+├── dataset/                 # Sample resumes (not uploaded to Git)
+├── uploads/                 # Resumes saved by the backend (not uploaded to Git)
+└── frontend/                # React website
 ```
 
 ## Screenshots
 
-| Login portals | Resume upload (Recruiter) |
+Add your images to `docs/screenshots/` with these names.
+
+| Login portals | Resume upload |
 |---|---|
 | ![Login](docs/screenshots/login.png) | ![Upload](docs/screenshots/upload.png) |
 
-| Dashboard (HR Manager) | Candidates list (HR Manager) |
+| Recruiter dashboard | Candidates list |
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Candidates](docs/screenshots/candidates.png) |
 
 ## Parser accuracy
 
-The parser was tested on generated PDF and DOCX resumes with known correct answers, and scored above the 95% target in the milestone. These test resumes are generated, so real resumes with unusual layouts may score lower. See `ACCURACY_REPORT.md` for the method and results.
+The parser scored 100% on 70 generated PDF and DOCX test resumes with known correct answers, against the 95% target in the milestone. These test resumes are generated, so real resumes with unusual layouts may score lower. See `ACCURACY_REPORT.md` for the method and results.
 
 ## Known limits
 
-- Fields are found with rules and patterns, not with a language model.
-- Skills come from a fixed list of about 90 skills.
+- Rules do most of the work. spaCy is used as a fallback for names, locations and colleges, and it is not perfect.
+- Fuzzy matching only fixes close spellings, not big typos.
 - Resumes that contain no name return an empty name instead of a guess.
 - Two-column PDF layouts can mix up the text order.
+
+## Optional: pyresparser
+
+pyresparser can be merged with the parser to fill in missing fields. It is off by default because it is an old library.
+
+```bash
+pip install pyresparser
+python -m nltk.downloader stopwords punkt words averaged_perceptron_tagger maxent_ne_chunker
+```
+
+Then add `USE_PYRESPARSER=true` to your `.env` file.
 
 ## Roadmap
 
