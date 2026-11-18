@@ -4,10 +4,12 @@ import uuid
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from parser.resume_parser import parse_resume, calculate_accuracy, build_final_json
+from parser.resume_parser import parse_resume, parse_text, calculate_accuracy, build_final_json
 from database import save_candidate
 from queries import get_all_candidates, get_stats, delete_candidate, get_final_profile
-from auth import register_user, authenticate, current_user, require_roles
+from auth import (register_user, authenticate, seed_admin, list_users, set_user_status,
+                  current_user, require_roles)
+from emailer import send_approval_email, send_rejection_email
 
 app = FastAPI(title="AI Recruitment Copilot")
 
@@ -20,6 +22,7 @@ app.add_middleware(
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+seed_admin()
 
 
 class LoginBody(BaseModel):
@@ -35,6 +38,10 @@ class RegisterBody(BaseModel):
     role: str
 
 
+class TextBody(BaseModel):
+    text: str
+
+
 @app.get("/")
 def home():
     return {"message": "AI Recruitment Copilot is running"}
@@ -43,15 +50,21 @@ def home():
 @app.post("/api/register")
 def register(body: RegisterBody):
     try:
-        user, token = register_user(body.name, body.email, body.password, body.role)
+        user = register_user(body.name, body.email, body.password, body.role)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
-    return {"token": token, "user": user}
+    return {
+        "message": "Account created. Please wait for the admin to approve it. We will email you when it is approved.",
+        "user": user,
+    }
 
 
 @app.post("/api/login")
 def login(body: LoginBody):
-    result = authenticate(body.email, body.password, body.role)
+    try:
+        result = authenticate(body.email, body.password, body.role)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error))
     if result is None:
         raise HTTPException(status_code=401, detail="Wrong email, password or portal")
     user, token = result
@@ -61,6 +74,27 @@ def login(body: LoginBody):
 @app.get("/api/me")
 def me(user=Depends(current_user)):
     return user
+
+
+@app.get("/api/admin/users")
+def admin_users(status: str = "pending", user=Depends(require_roles("admin"))):
+    return list_users(status)
+
+
+@app.post("/api/admin/users/{user_id}/approve")
+def approve_user(user_id: int, user=Depends(require_roles("admin"))):
+    approved = set_user_status(user_id, "approved")
+    if approved is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user": approved, "email": send_approval_email(approved)}
+
+
+@app.post("/api/admin/users/{user_id}/reject")
+def reject_user(user_id: int, user=Depends(require_roles("admin"))):
+    rejected = set_user_status(user_id, "rejected")
+    if rejected is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user": rejected, "email": send_rejection_email(rejected)}
 
 
 @app.post("/api/upload_resume")
@@ -84,6 +118,24 @@ async def upload_resume(file: UploadFile = File(...), user=Depends(require_roles
     return {
         "candidate_id": candidate_id,
         "filename": file.filename,
+        "profile": profile,
+        "candidate_profile": build_final_json(profile, candidate_id),
+        "extraction_accuracy": accuracy,
+    }
+
+
+@app.post("/api/parse_text")
+def parse_typed_details(body: TextBody, user=Depends(require_roles("recruiter", "candidate"))):
+    if len(body.text.strip()) < 30:
+        raise HTTPException(status_code=400, detail="Please type at least a few lines of resume details")
+
+    profile = parse_text(body.text)
+    accuracy = calculate_accuracy(profile)
+    candidate_id = save_candidate(profile, "typed details")
+
+    return {
+        "candidate_id": candidate_id,
+        "filename": "Typed details",
         "profile": profile,
         "candidate_profile": build_final_json(profile, candidate_id),
         "extraction_accuracy": accuracy,

@@ -1,16 +1,19 @@
 import hashlib
-import os
 import hmac
+import os
 import secrets
 import time
+from datetime import datetime
+
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime, inspect, text
+
 from database import Base, engine, Session
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-secret-key-please-set-your-own-in-env-file")
-ROLES = ["recruiter", "hr", "candidate"]
+SIGNUP_ROLES = ["recruiter", "hr", "candidate"]
 
 
 class User(Base):
@@ -21,9 +24,23 @@ class User(Base):
     email = Column(String(100), unique=True)
     password_hash = Column(String(255))
     role = Column(String(20))
+    status = Column(String(20), default="pending")
+    created_at = Column(DateTime, default=datetime.now)
 
 
 Base.metadata.create_all(engine)
+
+
+def add_missing_columns():
+    names = [column["name"] for column in inspect(engine).get_columns("users")]
+    with engine.begin() as connection:
+        if "status" not in names:
+            connection.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'approved'"))
+        if "created_at" not in names:
+            connection.execute(text("ALTER TABLE users ADD COLUMN created_at TIMESTAMP"))
+
+
+add_missing_columns()
 
 
 def hash_password(password):
@@ -39,7 +56,14 @@ def verify_password(password, stored):
 
 
 def user_to_dict(user):
-    return {"user_id": user.user_id, "name": user.name, "email": user.email, "role": user.role}
+    return {
+        "user_id": user.user_id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+        "status": user.status,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+    }
 
 
 def create_token(user):
@@ -49,7 +73,7 @@ def create_token(user):
 
 def register_user(name, email, password, role):
     email = email.strip().lower()
-    if role not in ROLES:
+    if role not in SIGNUP_ROLES:
         raise ValueError("Invalid role")
     if len(password) < 6:
         raise ValueError("Password must be at least 6 characters")
@@ -58,10 +82,11 @@ def register_user(name, email, password, role):
     with Session() as session:
         if session.query(User).filter(User.email == email).first():
             raise ValueError("This email is already registered")
-        user = User(name=name.strip(), email=email, password_hash=hash_password(password), role=role)
+        user = User(name=name.strip(), email=email, password_hash=hash_password(password),
+                    role=role, status="pending")
         session.add(user)
         session.commit()
-        return user_to_dict(user), create_token(user)
+        return user_to_dict(user)
 
 
 def authenticate(email, password, role):
@@ -71,7 +96,44 @@ def authenticate(email, password, role):
             return None
         if not verify_password(password, user.password_hash):
             return None
+        if user.status == "pending":
+            raise PermissionError("Your account is waiting for admin approval")
+        if user.status == "rejected":
+            raise PermissionError("Your account request was rejected by the admin")
         return user_to_dict(user), create_token(user)
+
+
+def seed_admin():
+    email = os.getenv("ADMIN_EMAIL", "").strip().lower()
+    password = os.getenv("ADMIN_PASSWORD", "")
+    name = os.getenv("ADMIN_NAME", "Admin")
+    if email == "" or password == "":
+        return
+    with Session() as session:
+        if session.query(User).filter(User.email == email).first():
+            return
+        session.add(User(name=name, email=email, password_hash=hash_password(password),
+                         role="admin", status="approved"))
+        session.commit()
+
+
+def list_users(status):
+    with Session() as session:
+        query = session.query(User).filter(User.role != "admin")
+        if status:
+            query = query.filter(User.status == status)
+        rows = query.order_by(User.user_id.desc()).all()
+        return [user_to_dict(row) for row in rows]
+
+
+def set_user_status(user_id, status):
+    with Session() as session:
+        user = session.get(User, user_id)
+        if user is None or user.role == "admin":
+            return None
+        user.status = status
+        session.commit()
+        return user_to_dict(user)
 
 
 security = HTTPBearer(auto_error=False)
@@ -86,8 +148,8 @@ def current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
         raise HTTPException(status_code=401, detail="Session expired, please log in again")
     with Session() as session:
         user = session.get(User, int(data["sub"]))
-        if user is None:
-            raise HTTPException(status_code=401, detail="User not found")
+        if user is None or user.status != "approved":
+            raise HTTPException(status_code=401, detail="User not found or not approved")
         return user_to_dict(user)
 
 

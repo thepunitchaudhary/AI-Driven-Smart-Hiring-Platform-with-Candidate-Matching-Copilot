@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Briefcase, ShieldCheck, User, LogIn, FileText, Users, BarChart3 } from "lucide-react";
+import { Briefcase, ShieldCheck, User, UserCog, LogIn, FileText, Users, BarChart3 } from "lucide-react";
 import { login, register } from "./api";
 
 const PORTALS = [
   { id: "recruiter", label: "Recruiter", icon: Briefcase, text: "Upload resumes, review candidates and manage job postings" },
   { id: "hr", label: "HR Manager", icon: ShieldCheck, text: "View hiring analytics, approve candidates and get reports" },
   { id: "candidate", label: "Candidate", icon: User, text: "Upload your resume and build your candidate profile" },
+  { id: "admin", label: "Admin", icon: UserCog, text: "Approve new accounts and manage access" },
 ];
 
 function LoginPage({ onLogin }) {
@@ -15,6 +16,7 @@ function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
   const portal = PORTALS.find((p) => p.id === role);
@@ -23,11 +25,17 @@ function LoginPage({ onLogin }) {
     e.preventDefault();
     setError("");
     setLoading(true);
+    setNotice("");
     try {
-      const data = signup
-        ? await register(name, email, password, role)
-        : await login(email, password, role);
-      onLogin(data.token, data.user);
+      if (signup) {
+        const data = await register(name, email, password, role);
+        setNotice(data.message);
+        setSignup(false);
+        setPassword("");
+      } else {
+        const data = await login(email, password, role);
+        onLogin(data.token, data.user);
+      }
     } catch (err) {
       setError(err.message === "Failed to fetch" ? "Cannot connect to the backend" : err.message);
     }
@@ -56,7 +64,7 @@ function LoginPage({ onLogin }) {
             {PORTALS.map((p) => (
               <button type="button" key={p.id}
                 className={role === p.id ? "portal active" : "portal"}
-                onClick={() => { setRole(p.id); setError(""); }}>
+                onClick={() => { setRole(p.id); setError(""); setNotice(""); setSignup(false); }}>
                 <p.icon size={20} />
                 {p.label}
               </button>
@@ -76,17 +84,21 @@ function LoginPage({ onLogin }) {
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" required />
           </label>
 
+          {signup && <p className="hint">Use a real email address. We will email you when the admin approves your account.</p>}
+          {notice && <div className="notice">{notice}</div>}
           {error && <div className="alert">{error}</div>}
 
           <button className="btn wide-btn" disabled={loading}>
             <LogIn size={16} /> {loading ? "Please wait..." : signup ? "Create " + portal.label + " account" : "Sign in as " + portal.label}
           </button>
 
-          <div className="login-links">
-            <button type="button" className="link" onClick={() => { setSignup(!signup); setError(""); }}>
-              {signup ? "Already have an account? Sign in" : "New here? Create account"}
-            </button>
-          </div>
+          {role !== "admin" && (
+            <div className="login-links">
+              <button type="button" className="link" onClick={() => { setSignup(!signup); setError(""); setNotice(""); }}>
+                {signup ? "Already have an account? Sign in" : "New here? Create account"}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

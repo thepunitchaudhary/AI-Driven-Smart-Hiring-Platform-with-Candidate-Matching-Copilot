@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { LayoutDashboard, FileUp, Users, Search, FileText, Percent, CheckCheck, Sparkles, Briefcase, BarChart3, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FileUp, Users, Search, FileText, Percent, CheckCheck, Sparkles, Briefcase, BarChart3, Settings, LogOut, UserCheck } from "lucide-react";
 import { getCandidates, getStats, deleteCandidate } from "./api";
 import LoginPage from "./LoginPage";
 import UploadPage from "./UploadPage";
 import CandidateTable from "./CandidateTable";
+import ApprovalsPage from "./ApprovalsPage";
 
 const ALL_NAV = {
   dashboard: { label: "Dashboard", icon: LayoutDashboard },
@@ -12,15 +13,17 @@ const ALL_NAV = {
   jobs: { label: "Job Postings", icon: Briefcase },
   analytics: { label: "Analytics", icon: BarChart3 },
   settings: { label: "Settings", icon: Settings },
+  approvals: { label: "User Approvals", icon: UserCheck },
 };
 
 const ROLE_PAGES = {
   recruiter: ["dashboard", "upload", "candidates", "jobs", "settings"],
   hr: ["dashboard", "candidates", "analytics", "settings"],
   candidate: ["upload"],
+  admin: ["approvals"],
 };
 
-const ROLE_NAMES = { recruiter: "Recruiter", hr: "HR Manager", candidate: "Candidate" };
+const ROLE_NAMES = { recruiter: "Recruiter", hr: "HR Manager", candidate: "Candidate", admin: "Admin" };
 
 const TITLES = {
   dashboard: ["Dashboard", "Overview of your resume parsing activity"],
@@ -29,6 +32,7 @@ const TITLES = {
   jobs: ["Job Postings", "Job description analysis will be added in a later milestone"],
   analytics: ["Analytics", "Hiring analytics will be added in a later milestone"],
   settings: ["Settings", "Application settings"],
+  approvals: ["User Approvals", "Approve or reject new account requests"],
 };
 
 function StatCards({ stats }) {
@@ -60,7 +64,10 @@ function readUser() {
 
 function App() {
   const [user, setUser] = useState(readUser());
-  const [page, setPage] = useState("upload");
+  const [page, setPage] = useState(() => {
+    const saved = readUser();
+    return saved ? ROLE_PAGES[saved.role][0] : "upload";
+  });
   const [candidates, setCandidates] = useState([]);
   const [stats, setStats] = useState({ total: 0, average_accuracy: 0, complete_profiles: 0, unique_skills: 0 });
   const [error, setError] = useState("");
@@ -81,7 +88,7 @@ function App() {
   }
 
   async function load() {
-    if (!user || user.role === "candidate") return;
+    if (!user || !["recruiter", "hr"].includes(user.role)) return;
     try {
       const [list, summary] = await Promise.all([getCandidates(), getStats()]);
       setCandidates(list);
@@ -109,10 +116,11 @@ function App() {
   }
 
   const pages = ROLE_PAGES[user.role];
+  const current = pages.includes(page) ? page : pages[0];
   const canDelete = user.role === "recruiter";
   const title = user.role === "candidate"
     ? ["Upload Your Resume", "Upload your resume to create your candidate profile"]
-    : TITLES[page];
+    : TITLES[current];
 
   const filtered = candidates.filter((c) => {
     const text = (c.name + " " + c.email + " " + c.skills.join(" ")).toLowerCase();
@@ -127,7 +135,7 @@ function App() {
           {pages.map((id) => {
             const Icon = ALL_NAV[id].icon;
             return (
-              <button key={id} className={page === id ? "nav-item active" : "nav-item"} onClick={() => setPage(id)}>
+              <button key={id} className={current === id ? "nav-item active" : "nav-item"} onClick={() => setPage(id)}>
                 <Icon size={18} /> {user.role === "candidate" && id === "upload" ? "My Resume" : ALL_NAV[id].label}
               </button>
             );
@@ -151,7 +159,7 @@ function App() {
 
         {error && <div className="alert">{error}</div>}
 
-        {page === "dashboard" && (
+        {current === "dashboard" && (
           <>
             <StatCards stats={stats} />
             <section className="card">
@@ -161,18 +169,20 @@ function App() {
           </>
         )}
 
-        {page === "upload" && (
+        {current === "upload" && (
           <UploadPage role={user.role} stats={stats} candidates={candidates} onChange={load}
             onDelete={canDelete ? handleDelete : null} />
         )}
 
-        {["jobs", "analytics", "settings"].includes(page) && (
+        {["jobs", "analytics", "settings"].includes(current) && (
           <section className="card">
             <p className="empty">This section will be built in a later milestone.</p>
           </section>
         )}
 
-        {page === "candidates" && (
+        {current === "approvals" && <ApprovalsPage />}
+
+        {current === "candidates" && (
           <section className="card">
             <div className="toolbar">
               <h2>All Candidates ({filtered.length})</h2>

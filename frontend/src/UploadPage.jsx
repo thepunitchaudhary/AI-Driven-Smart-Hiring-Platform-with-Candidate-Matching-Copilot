@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
-import { UploadCloud, FileText, CheckCircle2, XCircle, Loader2, Upload } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, XCircle, Loader2, Upload, Type } from "lucide-react";
 import { uploadResume } from "./api";
 import CandidateTable from "./CandidateTable";
+import TypeResume from "./TypeResume";
 
 function formatSize(bytes) {
   if (bytes > 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
@@ -18,6 +19,7 @@ function UploadPage({ role, stats, candidates, onChange, onDelete }) {
   const [queue, setQueue] = useState([]);
   const [last, setLast] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [mode, setMode] = useState("file");
   const inputRef = useRef(null);
 
   function updateItem(id, patch) {
@@ -61,7 +63,17 @@ function UploadPage({ role, stats, candidates, onChange, onDelete }) {
     <>
       <div className="grid-2">
         <section className="card">
-          <h2><UploadCloud size={18} /> Upload Resume</h2>
+          <div className="mode-tabs">
+            <button className={mode === "file" ? "tab-btn active" : "tab-btn"} onClick={() => setMode("file")}>
+              <UploadCloud size={16} /> Upload file
+            </button>
+            <button className={mode === "type" ? "tab-btn active" : "tab-btn"} onClick={() => setMode("type")}>
+              <Type size={16} /> Type details
+            </button>
+          </div>
+          {mode === "type" && <TypeResume onParsed={(data) => { setLast(data); onChange(); }} />}
+          {mode === "file" && (
+          <>
           <div
             className={dragging ? "dropzone active" : "dropzone"}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -96,6 +108,8 @@ function UploadPage({ role, stats, candidates, onChange, onDelete }) {
               </div>
             ))}
           </div>
+          </>
+          )}
         </section>
 
         <section className="card">

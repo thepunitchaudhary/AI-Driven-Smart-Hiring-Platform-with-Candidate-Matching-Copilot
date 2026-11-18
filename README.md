@@ -12,6 +12,9 @@ A web platform that reads candidate resumes (PDF and DOCX), extracts the key det
 - Dashboard with resumes processed, fields found, complete profiles and unique skills
 - Candidate search by name, email or skill
 - **Three login portals** with role-based access: Recruiter, HR Manager and Candidate
+- **Admin approval:** new accounts start as pending, and an admin approves or rejects them
+- **Email notice** to the user when the account is approved or rejected (free with a Gmail App Password)
+- Upload a resume file, or **type the resume details** on the website and have them parsed
 - Secure login with JWT tokens and hashed passwords
 
 ## Tech stack
@@ -59,9 +62,10 @@ Example profile returned as `candidate_profile`:
 
 | Portal | What they can do |
 |---|---|
-| Recruiter | Upload resumes, view and search candidates, delete candidates |
+| Recruiter | Upload or type resumes, view and search candidates, delete candidates |
 | HR Manager | View the dashboard and candidates (view only) |
-| Candidate | Upload their own resume and see only their own parsed profile |
+| Candidate | Upload or type their own resume and see only their own parsed profile |
+| Admin | Approve or reject new account requests |
 
 Access is checked in the backend on every request, not only hidden in the screen.
 
@@ -101,6 +105,8 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=recruitment_db
 SECRET_KEY=put-a-long-random-text-here
+ADMIN_EMAIL=admin@yourcompany.com
+ADMIN_PASSWORD=choose-a-strong-admin-password
 ```
 
 `.env` is ignored by Git, so your password is never uploaded.
@@ -130,18 +136,50 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-## Creating accounts
+## Accounts and approval
 
-Open the login page, choose a portal (Recruiter, HR Manager or Candidate), click **New here? Create account**, and sign up with your name, email and a password of at least 6 characters. Then sign in with the same portal.
+1. A new user opens the login page, chooses a portal (Recruiter, HR Manager or Candidate), clicks **New here? Create account** and signs up with a real email address.
+2. The account is **pending**. The user cannot sign in until the admin approves it, and sees the message "Your account is waiting for admin approval".
+3. The admin signs in through the **Admin** portal, opens **User Approvals**, and clicks **Approve** or **Reject**.
+4. The user gets an email, if email is set up, and can then sign in.
+
+The admin account is created automatically when the backend starts, from `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your `.env` file. Change the default password. Nobody can sign up as an admin.
+
+Accounts that existed before the approval feature was added are marked as approved.
+
+## Email notifications (free with Gmail)
+
+Email is optional. Without it, everything works and the admin screen shows that no email was sent.
+
+1. In your Google account, turn on **2-Step Verification**.
+2. Open Google Account, then Security, then **App passwords**, and create one named "Recruitment Copilot". Copy the 16-letter password.
+3. Add these lines to your `.env` file:
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_gmail_address@gmail.com
+SMTP_PASSWORD=your_16_letter_app_password
+EMAIL_FROM=your_gmail_address@gmail.com
+APP_URL=http://localhost:5173
+```
+
+4. Restart the backend. Emails may land in the spam folder at first. Gmail limits how many emails you can send each day, which is enough for a project.
+
+Never put the app password in the code or on GitHub.
 
 ## API endpoints
 
 | Method | Endpoint | Access |
 |---|---|---|
-| POST | `/api/register` | Public |
+| POST | `/api/register` | Public (account starts as pending) |
 | POST | `/api/login` | Public |
 | GET | `/api/me` | Any logged-in user |
-| POST | `/api/upload_resume` | Any logged-in user |
+| POST | `/api/upload_resume` | Recruiter, Candidate |
+| POST | `/api/parse_text` | Recruiter, Candidate |
+| GET | `/api/admin/users?status=pending` | Admin |
+| POST | `/api/admin/users/{id}/approve` | Admin |
+| POST | `/api/admin/users/{id}/reject` | Admin |
 | GET | `/api/candidates` | Recruiter, HR Manager |
 | GET | `/api/stats` | Recruiter, HR Manager |
 | GET | `/api/candidates/{id}/profile` | Recruiter, HR Manager |
@@ -152,7 +190,8 @@ Open the login page, choose a portal (Recruiter, HR Manager or Candidate), click
 ```
 .
 ├── main.py                  # FastAPI app and API routes
-├── auth.py                  # Login, registration, roles, JWT tokens
+├── auth.py                  # Login, registration, approval, roles, JWT tokens
+├── emailer.py               # Approval and rejection emails
 ├── queries.py               # Candidate list, stats, final profile JSON, delete
 ├── requirements.txt         # Python packages
 ├── .env.example             # Example settings (copy to .env)

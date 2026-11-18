@@ -26,7 +26,7 @@ def extract_resume_text(path):
 
 
 def merge_pyresparser(path, profile):
-    if ResumeParser is None:
+    if ResumeParser is None or path == "":
         return profile
     try:
         data = ResumeParser(path).get_extracted_data()
@@ -45,8 +45,7 @@ def merge_pyresparser(path, profile):
     return profile
 
 
-def parse_resume(path):
-    text = extract_resume_text(path)
+def parse_text(text, path=""):
     details = extract_education(text)
     experience, years = extract_experience(text)
     profile = {
@@ -63,6 +62,10 @@ def parse_resume(path):
         "certifications": get_certifications(text),
     }
     return merge_pyresparser(path, profile)
+
+
+def parse_resume(path):
+    return parse_text(extract_resume_text(path), path)
 
 
 def build_final_json(profile, candidate_id):

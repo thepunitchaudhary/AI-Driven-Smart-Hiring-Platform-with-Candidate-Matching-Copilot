@@ -49,3 +49,19 @@ export function getStats() {
 export function deleteCandidate(id) {
   return request("/api/candidates/" + id, { method: "DELETE" });
 }
+
+export function parseText(text) {
+  return sendJson("/api/parse_text", { text });
+}
+
+export function getUsers(status) {
+  return request("/api/admin/users?status=" + status);
+}
+
+export function approveUser(id) {
+  return request("/api/admin/users/" + id + "/approve", { method: "POST" });
+}
+
+export function rejectUser(id) {
+  return request("/api/admin/users/" + id + "/reject", { method: "POST" });
+}
