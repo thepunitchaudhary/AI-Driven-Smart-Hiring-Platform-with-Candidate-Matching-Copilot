@@ -265,6 +265,11 @@ Then add `USE_PYRESPARSER=true` to your `.env` file.
 | 3 | Interview question generation, AI interview simulation | Planned |
 | 4 | Voice screening, recruitment analytics dashboard, ATS integration | Planned |
 
+## License
+
+This project is licensed under the MIT License.
+See the [LICENSE](LICENSE) file for details.
+
 ## Author
 
 Punit Kumar
