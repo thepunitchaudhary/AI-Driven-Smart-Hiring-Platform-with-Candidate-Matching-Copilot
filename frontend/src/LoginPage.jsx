@@ -1,31 +1,41 @@
 import { useState } from "react";
-import { Briefcase, ShieldCheck, User, UserCog, LogIn, FileText, Users, BarChart3 } from "lucide-react";
+import { Briefcase, ShieldCheck, User, UserCog, LogIn, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { login, register } from "./api";
 
 const PORTALS = [
-  { id: "recruiter", label: "Recruiter", icon: Briefcase, text: "Upload resumes, review candidates and manage job postings" },
-  { id: "hr", label: "HR Manager", icon: ShieldCheck, text: "View hiring analytics, approve candidates and get reports" },
+  { id: "hr", label: "HR Manager", icon: Briefcase, text: "Upload resumes, review candidates and manage job postings" },
   { id: "candidate", label: "Candidate", icon: User, text: "Upload your resume and build your candidate profile" },
   { id: "admin", label: "Admin", icon: UserCog, text: "Approve new accounts and manage access" },
 ];
 
+const STEPS = [
+  ["Upload a resume", "PDF or DOCX, one or many at a time. You can also type the details in."],
+  ["Review what was found", "Name, contact details, skills, education and experience."],
+  ["Search your candidates", "Find people by name, email or skill."],
+];
+
 function LoginPage({ onLogin }) {
-  const [role, setRole] = useState("recruiter");
+  const [role, setRole] = useState("hr");
   const [signup, setSignup] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
   const portal = PORTALS.find((p) => p.id === role);
 
+  function reset() {
+    setError("");
+    setNotice("");
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
-    setError("");
+    reset();
     setLoading(true);
-    setNotice("");
     try {
       if (signup) {
         const data = await register(name, email, password, role);
@@ -37,34 +47,42 @@ function LoginPage({ onLogin }) {
         onLogin(data.token, data.user);
       }
     } catch (err) {
-      setError(err.message === "Failed to fetch" ? "Cannot connect to the backend" : err.message);
+      setError(err.message === "Failed to fetch" ? "Cannot connect to the backend. Check that uvicorn is running on port 8000." : err.message);
     }
     setLoading(false);
   }
 
   return (
     <div className="login-page">
-      <div className="login-hero">
+      <section className="login-hero">
         <div className="brand light"><span className="logo">RC</span> Recruitment Copilot</div>
-        <h1>AI-Driven Smart Hiring Platform</h1>
-        <p>Automate resume screening, candidate matching and interviews with AI.</p>
-        <ul>
-          <li><FileText size={18} /> Resume parsing for PDF and DOCX</li>
-          <li><Users size={18} /> Structured candidate profiles</li>
-          <li><BarChart3 size={18} /> Recruitment analytics dashboard</li>
-        </ul>
-      </div>
 
-      <div className="login-side">
-        <form className="login-card" onSubmit={handleSubmit}>
-          <h2>{signup ? "Create account" : "Welcome back"}</h2>
-          <p className="sub">Choose your portal to continue</p>
+        <div className="hero-body">
+          <h1>Turn resumes into searchable candidate profiles</h1>
+          <p>The platform reads each resume and pulls out the details hiring teams look for, so nobody has to retype them.</p>
+          <ol className="steps">
+            {STEPS.map(([title, text], i) => (
+              <li key={title}>
+                <span>{i + 1}</span>
+                <div><strong>{title}</strong><small>{text}</small></div>
+              </li>
+            ))}
+          </ol>
+        </div>
 
-          <div className="portal-tabs">
+        <p className="hero-foot">New accounts are approved by an admin before first sign-in.</p>
+      </section>
+
+      <section className="login-side">
+        <main className="login-card">
+          <h2>{signup ? "Create your account" : "Welcome back"}</h2>
+          <p className="sub">{signup ? "Pick your portal and an admin will review the request." : "Choose your portal to continue"}</p>
+
+          <div className="portal-tabs" role="group" aria-label="Portal">
             {PORTALS.map((p) => (
-              <button type="button" key={p.id}
+              <button type="button" key={p.id} aria-pressed={role === p.id}
                 className={role === p.id ? "portal active" : "portal"}
-                onClick={() => { setRole(p.id); setError(""); setNotice(""); setSignup(false); }}>
+                onClick={() => { setRole(p.id); reset(); setSignup(false); }}>
                 <p.icon size={20} />
                 {p.label}
               </button>
@@ -72,35 +90,51 @@ function LoginPage({ onLogin }) {
           </div>
           <p className="portal-text">{portal.text}</p>
 
-          {signup && (
-            <label>Full name
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required />
+          <form onSubmit={handleSubmit}>
+            {signup && (
+              <label>Full name
+                <span className="field">
+                  <User size={16} className="lead" />
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="name" required />
+                </span>
+              </label>
+            )}
+            <label>Email
+              <span className="field">
+                <Mail size={16} className="lead" />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" autoComplete="email" required />
+              </span>
             </label>
-          )}
-          <label>Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required />
-          </label>
-          <label>Password
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" required />
-          </label>
+            <label>Password
+              <span className="field">
+                <Lock size={16} className="lead" />
+                <input type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 6 characters" autoComplete={signup ? "new-password" : "current-password"} required />
+                <button type="button" className="eye" onClick={() => setShow(!show)} aria-label={show ? "Hide password" : "Show password"}>
+                  {show ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </span>
+            </label>
 
-          {signup && <p className="hint">Use a real email address. We will email you when the admin approves your account.</p>}
-          {notice && <div className="notice">{notice}</div>}
-          {error && <div className="alert">{error}</div>}
+            {signup && <p className="hint">Use a real email address. We will email you when your account is approved.</p>}
+            {notice && <div className="notice">{notice}</div>}
+            {error && <div className="alert" role="alert">{error}</div>}
 
-          <button className="btn wide-btn" disabled={loading}>
-            <LogIn size={16} /> {loading ? "Please wait..." : signup ? "Create " + portal.label + " account" : "Sign in as " + portal.label}
-          </button>
+            <button className="btn wide-btn" disabled={loading}>
+              {loading ? <Loader2 size={16} className="spin" /> : <LogIn size={16} />}
+              {loading ? "Please wait..." : signup ? "Create " + portal.label + " account" : "Sign in as " + portal.label}
+            </button>
+          </form>
 
           {role !== "admin" && (
             <div className="login-links">
-              <button type="button" className="link" onClick={() => { setSignup(!signup); setError(""); setNotice(""); }}>
-                {signup ? "Already have an account? Sign in" : "New here? Create account"}
+              <button type="button" className="link" onClick={() => { setSignup(!signup); reset(); }}>
+                {signup ? "Already have an account? Sign in" : "New here? Create an account"}
               </button>
             </div>
           )}
-        </form>
-      </div>
+        </main>
+      </section>
     </div>
   );
 }

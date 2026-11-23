@@ -17,13 +17,12 @@ const ALL_NAV = {
 };
 
 const ROLE_PAGES = {
-  recruiter: ["dashboard", "upload", "candidates", "jobs", "settings"],
-  hr: ["dashboard", "candidates", "analytics", "settings"],
+  hr: ["dashboard", "upload", "candidates", "jobs", "analytics", "settings"],
   candidate: ["upload"],
   admin: ["approvals"],
 };
 
-const ROLE_NAMES = { recruiter: "Recruiter", hr: "HR Manager", candidate: "Candidate", admin: "Admin" };
+const ROLE_NAMES = { hr: "HR Manager", candidate: "Candidate", admin: "Admin" };
 
 const TITLES = {
   dashboard: ["Dashboard", "Overview of your resume parsing activity"],
@@ -51,6 +50,44 @@ function StatCards({ stats }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function TopSkills({ candidates }) {
+  const counts = {};
+  candidates.forEach((c) => c.skills.forEach((k) => { counts[k] = (counts[k] || 0) + 1; }));
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const max = top.length ? top[0][1] : 1;
+  return (
+    <section className="card">
+      <h2>Top skills</h2>
+      {top.length === 0 && <p className="empty">Skills appear here once resumes are parsed.</p>}
+      {top.map(([name, n]) => (
+        <div className="bar-row" key={name}>
+          <span>{name}</span>
+          <div className="bar"><div style={{ width: (n / max) * 100 + "%" }} /></div>
+          <b>{n}</b>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function Quality({ candidates }) {
+  const groups = [
+    { label: "Complete", color: "var(--accent)", n: candidates.filter((c) => c.accuracy === 100).length },
+    { label: "Mostly complete", color: "var(--gold)", n: candidates.filter((c) => c.accuracy >= 67 && c.accuracy < 100).length },
+    { label: "Needs review", color: "var(--red)", n: candidates.filter((c) => c.accuracy < 67).length },
+  ];
+  const total = candidates.length || 1;
+  return (
+    <section className="card">
+      <h2>Profile quality</h2>
+      <div className="stack">{groups.map((g) => <div key={g.label} style={{ width: (g.n / total) * 100 + "%", background: g.color }} />)}</div>
+      {groups.map((g) => (
+        <div className="legend" key={g.label}><i style={{ background: g.color }} />{g.label}<b>{g.n}</b></div>
+      ))}
+    </section>
   );
 }
 
@@ -88,7 +125,7 @@ function App() {
   }
 
   async function load() {
-    if (!user || !["recruiter", "hr"].includes(user.role)) return;
+    if (!user || user.role !== "hr") return;
     try {
       const [list, summary] = await Promise.all([getCandidates(), getStats()]);
       setCandidates(list);
@@ -117,7 +154,7 @@ function App() {
 
   const pages = ROLE_PAGES[user.role];
   const current = pages.includes(page) ? page : pages[0];
-  const canDelete = user.role === "recruiter";
+  const canDelete = user.role === "hr";
   const title = user.role === "candidate"
     ? ["Upload Your Resume", "Upload your resume to create your candidate profile"]
     : TITLES[current];
@@ -149,12 +186,25 @@ function App() {
       </aside>
 
       <main className="content">
+        <div className="topbar">
+          <div className="crumbs">Recruitment Copilot <span>/</span> <b>{title[0]}</b></div>
+          {user.role === "hr" && (
+            <div className="search top-search">
+              <Search size={16} />
+              <input placeholder="Search candidates by name, email or skill" value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage("candidates"); }} />
+            </div>
+          )}
+          {user.role === "hr" && current !== "upload" && (
+            <button className="btn" onClick={() => setPage("upload")}><FileUp size={16} /> Upload resumes</button>
+          )}
+        </div>
         <header className="page-head">
           <div>
             <h1>{title[0]}</h1>
             <p>{title[1]}</p>
           </div>
-          <span className="pill">Milestone 1</span>
+          
         </header>
 
         {error && <div className="alert">{error}</div>}
@@ -162,6 +212,7 @@ function App() {
         {current === "dashboard" && (
           <>
             <StatCards stats={stats} />
+            <div className="grid-2"><TopSkills candidates={candidates} /><Quality candidates={candidates} /></div>
             <section className="card">
               <h2>Recent Candidates</h2>
               <CandidateTable rows={candidates.slice(0, 8)} onDelete={canDelete ? handleDelete : null} />

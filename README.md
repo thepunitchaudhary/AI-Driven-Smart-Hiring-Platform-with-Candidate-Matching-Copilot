@@ -1,6 +1,6 @@
 # AI-Driven Smart Hiring Platform with Candidate Matching Copilot
 
-A web platform that reads candidate resumes (PDF and DOCX), extracts the key details, and saves them as structured candidate profiles. Recruiters, HR managers and candidates each get their own login portal.
+A web platform that reads candidate resumes (PDF and DOCX), extracts the key details, and saves them as structured candidate profiles. HR managers and candidates each get their own login portal, and an admin approves new accounts.
 
 > **Current status: Milestone 1 complete** (Resume Parsing and Candidate Profiling). Job description analysis, candidate matching, skill gap reports, interview tools and analytics are planned for the next milestones.
 
@@ -8,10 +8,10 @@ A web platform that reads candidate resumes (PDF and DOCX), extracts the key det
 
 - Upload resumes in **PDF** and **DOCX** format, one or many at a time
 - Automatic extraction of name, email, phone, location, education, experience, skills, projects and certifications
-- Structured candidate profiles stored in **PostgreSQL**
+- Structured candidate profiles stored in **PostgreSQL** (hosted on Neon, or a local PostgreSQL)
 - Dashboard with resumes processed, fields found, complete profiles and unique skills
 - Candidate search by name, email or skill
-- **Three login portals** with role-based access: Recruiter, HR Manager and Candidate
+- **Three portals** with role-based access: HR Manager, Candidate and Admin
 - **Admin approval:** new accounts start as pending, and an admin approves or rejects them
 - **Email notice** to the user when the account is approved or rejected (free with a Gmail App Password)
 - Upload a resume file, or **type the resume details** on the website and have them parsed
@@ -23,7 +23,7 @@ A web platform that reads candidate resumes (PDF and DOCX), extracts the key det
 |---|---|
 | Frontend | React (Vite), lucide-react icons |
 | Backend | FastAPI (Python) |
-| Database | PostgreSQL with SQLAlchemy |
+| Database | PostgreSQL (Neon or local) with SQLAlchemy |
 | Resume parsing | pdfplumber, python-docx, rules, spaCy, rapidfuzz, a 570+ skill list |
 | Authentication | PyJWT, PBKDF2 password hashing |
 
@@ -62,8 +62,7 @@ Example profile returned as `candidate_profile`:
 
 | Portal | What they can do |
 |---|---|
-| Recruiter | Upload or type resumes, view and search candidates, delete candidates |
-| HR Manager | View the dashboard and candidates (view only) |
+| HR Manager | Upload or type resumes, view and search candidates, delete candidates, see the dashboard |
 | Candidate | Upload or type their own resume and see only their own parsed profile |
 | Admin | Approve or reject new account requests |
 
@@ -75,7 +74,7 @@ Access is checked in the backend on every request, not only hidden in the screen
 
 - Python 3.11 or newer
 - Node.js 18 or newer
-- PostgreSQL
+- PostgreSQL (a free Neon database, or a local installation)
 
 ### 1. Clone the project
 
@@ -86,7 +85,9 @@ cd AI-Driven-Smart-Hiring-Platform-with-Candidate-Matching-Copilot
 
 ### 2. Create the database
 
-In pgAdmin, create a database named `recruitment_db`. You can also run this in `psql`:
+**Neon (hosted):** create a project at neon.tech, then copy its connection string.
+
+**Local PostgreSQL:** create an empty database named `recruitment_db` in pgAdmin, or run this in `psql`:
 
 ```sql
 CREATE DATABASE recruitment_db;
@@ -96,7 +97,16 @@ The tables are created automatically the first time the backend starts.
 
 ### 3. Add your settings
 
-Copy `.env.example` to `.env` and fill in your values:
+Copy `.env.example` to `.env` and fill in your values. For Neon, paste its connection string into `DATABASE_URL`:
+
+```
+DATABASE_URL=postgresql://user:password@your-host.neon.tech/dbname?sslmode=require
+SECRET_KEY=put-a-long-random-text-here
+ADMIN_EMAIL=admin@yourcompany.com
+ADMIN_PASSWORD=choose-a-strong-admin-password
+```
+
+For a local database you can use these instead of `DATABASE_URL`:
 
 ```
 DB_USER=postgres
@@ -104,12 +114,9 @@ DB_PASSWORD=your_postgres_password
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=recruitment_db
-SECRET_KEY=put-a-long-random-text-here
-ADMIN_EMAIL=admin@yourcompany.com
-ADMIN_PASSWORD=choose-a-strong-admin-password
 ```
 
-`.env` is ignored by Git, so your password is never uploaded.
+Values in `.env` win over settings already in your terminal. `.env` is ignored by Git, so your passwords are never uploaded. When the backend starts it prints which database it connected to.
 
 ### 4. Start the backend
 
@@ -138,14 +145,14 @@ Open `http://localhost:5173`.
 
 ## Accounts and approval
 
-1. A new user opens the login page, chooses a portal (Recruiter, HR Manager or Candidate), clicks **New here? Create account** and signs up with a real email address.
+1. A new user opens the login page, chooses a portal (HR Manager or Candidate), clicks **New here? Create account** and signs up with a real email address.
 2. The account is **pending**. The user cannot sign in until the admin approves it, and sees the message "Your account is waiting for admin approval".
 3. The admin signs in through the **Admin** portal, opens **User Approvals**, and clicks **Approve** or **Reject**.
 4. The user gets an email, if email is set up, and can then sign in.
 
 The admin account is created automatically when the backend starts, from `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your `.env` file. Change the default password. Nobody can sign up as an admin.
 
-Accounts that existed before the approval feature was added are marked as approved.
+Accounts that existed before the approval feature was added are marked as approved. Old Recruiter accounts were moved to the HR Manager role.
 
 ## Email notifications (free with Gmail)
 
@@ -175,15 +182,16 @@ Never put the app password in the code or on GitHub.
 | POST | `/api/register` | Public (account starts as pending) |
 | POST | `/api/login` | Public |
 | GET | `/api/me` | Any logged-in user |
-| POST | `/api/upload_resume` | Recruiter, Candidate |
-| POST | `/api/parse_text` | Recruiter, Candidate |
+| POST | `/api/upload_resume` | HR Manager, Candidate |
+| POST | `/api/parse_text` | HR Manager, Candidate |
+| GET | `/api/candidates` | HR Manager |
+| GET | `/api/candidates/{id}/profile` | HR Manager |
+| GET | `/api/stats` | HR Manager |
+| DELETE | `/api/candidates/{id}` | HR Manager |
 | GET | `/api/admin/users?status=pending` | Admin |
 | POST | `/api/admin/users/{id}/approve` | Admin |
 | POST | `/api/admin/users/{id}/reject` | Admin |
-| GET | `/api/candidates` | Recruiter, HR Manager |
-| GET | `/api/stats` | Recruiter, HR Manager |
-| GET | `/api/candidates/{id}/profile` | Recruiter, HR Manager |
-| DELETE | `/api/candidates/{id}` | Recruiter |
+| GET | `/api/admin/db` | Admin (shows which database is in use) |
 
 ## Project structure
 
@@ -207,7 +215,7 @@ Never put the app password in the code or on GitHub.
 │   ├── section_extractor.py    # Finds Education, Skills, Projects sections
 │   └── nlp_model.py            # Loads the spaCy model
 ├── database/
-│   ├── db.py                # Database connection
+│   ├── db.py                # Database connection (Neon or local PostgreSQL)
 │   └── models.py            # Candidate table and save function
 ├── skills/
 │   └── skills.csv           # 570+ skills with aliases
@@ -218,13 +226,11 @@ Never put the app password in the code or on GitHub.
 
 ## Screenshots
 
-Add your images to `docs/screenshots/` with these names.
-
 | Login portals | Resume upload |
 |---|---|
 | ![Login](docs/screenshots/login.png) | ![Upload](docs/screenshots/upload.png) |
 
-| Recruiter dashboard | Candidates list |
+| HR dashboard | Candidates list |
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Candidates](docs/screenshots/candidates.png) |
 

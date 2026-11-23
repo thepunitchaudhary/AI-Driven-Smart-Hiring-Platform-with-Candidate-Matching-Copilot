@@ -2,7 +2,7 @@ import csv
 import json
 import os
 import sys
-from resume_parser import parse_resume
+from parser.resume_parser import parse_resume
 
 FIELDS = ["name", "email", "phone", "location", "education", "experience",
           "skills", "projects", "certifications"]

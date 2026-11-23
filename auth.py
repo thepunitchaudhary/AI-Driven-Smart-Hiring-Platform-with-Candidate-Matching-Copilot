@@ -13,7 +13,7 @@ from sqlalchemy import Column, Integer, String, DateTime, inspect, text
 from database import Base, engine, Session
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-secret-key-please-set-your-own-in-env-file")
-SIGNUP_ROLES = ["recruiter", "hr", "candidate"]
+SIGNUP_ROLES = ["hr", "candidate"]
 
 
 class User(Base):
@@ -38,6 +38,8 @@ def add_missing_columns():
             connection.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'approved'"))
         if "created_at" not in names:
             connection.execute(text("ALTER TABLE users ADD COLUMN created_at TIMESTAMP"))
+        # The Recruiter portal was removed; existing recruiter accounts become HR Manager accounts.
+        connection.execute(text("UPDATE users SET role = 'hr' WHERE role = 'recruiter'"))
 
 
 add_missing_columns()

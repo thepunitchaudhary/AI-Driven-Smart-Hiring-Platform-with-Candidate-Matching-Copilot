@@ -12,9 +12,9 @@ load_dotenv()
 
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_HOST = os.getenv("DB_HOST")
 DB_PORT = int(os.getenv("DB_PORT", "5432"))
-DB_NAME = os.getenv("DB_NAME", "recruitment_db")
+DB_NAME = os.getenv("DB_NAME")
 
 DATABASE_URL = URL.create(
     drivername="postgresql+psycopg",
@@ -25,7 +25,7 @@ DATABASE_URL = URL.create(
     database=DB_NAME
 )
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL,pool_pre_ping=True)
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -47,7 +47,7 @@ class Candidate(Base):
     created_at = Column(DateTime, default=datetime.now)
 
 
-Base.metadata.create_all(engine)
+Base.metadata.create_all(bind=engine)
 
 
 def save_candidate(profile, resume_path):

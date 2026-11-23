@@ -28,7 +28,7 @@ def send_email(to_address, subject, body):
 
 
 def portal_name(role):
-    names = {"recruiter": "Recruiter", "hr": "HR Manager", "candidate": "Candidate"}
+    names = {"hr": "HR Manager", "candidate": "Candidate"}
     return names.get(role, role)
 
 

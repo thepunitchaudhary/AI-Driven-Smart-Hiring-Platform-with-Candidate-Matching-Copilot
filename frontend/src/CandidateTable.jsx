@@ -1,9 +1,16 @@
 import { useState } from "react";
 import { Trash2, X } from "lucide-react";
+import Meter from "./Meter";
 
 function listText(items) {
   if (!items || items.length === 0) return "-";
   return items.join(", ");
+}
+
+function tint(name) {
+  let h = 0;
+  for (const ch of name || "?") h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return { background: "hsl(" + h + " 55% 90%)", color: "hsl(" + h + " 50% 26%)" };
 }
 
 function CandidateTable({ rows, onDelete }) {
@@ -19,18 +26,18 @@ function CandidateTable({ rows, onDelete }) {
         <table>
           <thead>
             <tr>
-              <th>Candidate Name</th>
+              <th>Candidate</th>
               <th>Email</th>
               <th>Experience</th>
               <th>Key Skills</th>
-              <th>Status</th>
+              <th>Fields found</th>
               {onDelete && <th></th>}
             </tr>
           </thead>
           <tbody>
             {rows.map((c) => (
               <tr key={c.candidate_id} className="clickable" onClick={() => setSelected(c)}>
-                <td>{c.name || "Unknown"}</td>
+                <td><span className="person"><span className="avatar" style={tint(c.name)}>{(c.name || "?").slice(0, 1).toUpperCase()}</span>{c.name || "Unknown"}</span></td>
                 <td>{c.email || "-"}</td>
                 <td>{c.experience || "-"}</td>
                 <td>
@@ -39,7 +46,7 @@ function CandidateTable({ rows, onDelete }) {
                   ))}
                   {c.skills.length > 3 && <span className="chip muted">+{c.skills.length - 3}</span>}
                 </td>
-                <td><span className="badge green">Processed</span></td>
+                <td><Meter value={c.accuracy} /></td>
                 {onDelete && (
                   <td>
                     <button className="icon-btn" title="Delete"
@@ -55,12 +62,12 @@ function CandidateTable({ rows, onDelete }) {
       </div>
 
       {selected && (
-        <div className="modal-backdrop" onClick={() => setSelected(null)}>
+        <div className="modal-backdrop drawer" onClick={() => setSelected(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <div>
                 <h2>{selected.name || "Unknown"}</h2>
-                <small>Candidate profile | {selected.accuracy}% of fields found</small>
+                <Meter value={selected.accuracy} />
               </div>
               <button className="icon-btn" title="Close" onClick={() => setSelected(null)}>
                 <X size={18} />

@@ -5,9 +5,9 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from parser.resume_parser import parse_resume, parse_text, calculate_accuracy, build_final_json
-from database import save_candidate
+from database import save_candidate, Session, Candidate, describe_db
 from queries import get_all_candidates, get_stats, delete_candidate, get_final_profile
-from auth import (register_user, authenticate, seed_admin, list_users, set_user_status,
+from auth import (User, register_user, authenticate, seed_admin, list_users, set_user_status,
                   current_user, require_roles)
 from emailer import send_approval_email, send_rejection_email
 
@@ -98,7 +98,7 @@ def reject_user(user_id: int, user=Depends(require_roles("admin"))):
 
 
 @app.post("/api/upload_resume")
-async def upload_resume(file: UploadFile = File(...), user=Depends(require_roles("recruiter", "candidate"))):
+async def upload_resume(file: UploadFile = File(...), user=Depends(require_roles("hr", "candidate"))):
     if not file.filename.lower().endswith((".pdf", ".docx")):
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are allowed")
 
@@ -125,7 +125,7 @@ async def upload_resume(file: UploadFile = File(...), user=Depends(require_roles
 
 
 @app.post("/api/parse_text")
-def parse_typed_details(body: TextBody, user=Depends(require_roles("recruiter", "candidate"))):
+def parse_typed_details(body: TextBody, user=Depends(require_roles("hr", "candidate"))):
     if len(body.text.strip()) < 30:
         raise HTTPException(status_code=400, detail="Please type at least a few lines of resume details")
 
@@ -143,12 +143,12 @@ def parse_typed_details(body: TextBody, user=Depends(require_roles("recruiter", 
 
 
 @app.get("/api/candidates")
-def candidates(user=Depends(require_roles("recruiter", "hr"))):
+def candidates(user=Depends(require_roles("hr"))):
     return get_all_candidates()
 
 
 @app.get("/api/candidates/{candidate_id}/profile")
-def candidate_profile(candidate_id: int, user=Depends(require_roles("recruiter", "hr"))):
+def candidate_profile(candidate_id: int, user=Depends(require_roles("hr"))):
     profile = get_final_profile(candidate_id)
     if profile is None:
         raise HTTPException(status_code=404, detail="Candidate not found")
@@ -156,12 +156,19 @@ def candidate_profile(candidate_id: int, user=Depends(require_roles("recruiter",
 
 
 @app.get("/api/stats")
-def stats(user=Depends(require_roles("recruiter", "hr"))):
+def stats(user=Depends(require_roles("hr"))):
     return get_stats()
 
 
 @app.delete("/api/candidates/{candidate_id}")
-def remove_candidate(candidate_id: int, user=Depends(require_roles("recruiter"))):
+def remove_candidate(candidate_id: int, user=Depends(require_roles("hr"))):
     if not delete_candidate(candidate_id):
         raise HTTPException(status_code=404, detail="Candidate not found")
     return {"deleted": candidate_id}
+
+
+@app.get("/api/admin/db")
+def db_info(user=Depends(require_roles("admin"))):
+    # Open this (logged in as admin) to confirm which database the app is really using.
+    with Session() as session:
+        return {**describe_db(), "candidates": session.query(Candidate).count(), "users": session.query(User).count()}

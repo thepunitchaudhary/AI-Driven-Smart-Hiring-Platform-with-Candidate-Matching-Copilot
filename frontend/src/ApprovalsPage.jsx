@@ -8,7 +8,7 @@ const TABS = [
   { id: "rejected", label: "Rejected" },
 ];
 
-const PORTALS = { recruiter: "Recruiter", hr: "HR Manager", candidate: "Candidate" };
+const PORTALS = { hr: "HR Manager", candidate: "Candidate" };
 
 function emailText(result) {
   if (result === "sent") return "An email was sent to the user.";
