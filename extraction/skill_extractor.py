@@ -62,7 +62,15 @@ for skill, names in ENTRIES:
         PATTERNS.append((skill, exact_pattern(name)))
 
 
+LOWER_NAMES = {}
+for skill, names in ENTRIES:
+    for name in names:
+        LOWER_NAMES[name.lower()] = skill
+
+
 def canonical_skill(name):
+    if name.strip().lower() in LOWER_NAMES:
+        return LOWER_NAMES[name.strip().lower()]
     key = normalize(name)
     if key in NORMAL_KEYS:
         return NORMAL_KEYS[key]

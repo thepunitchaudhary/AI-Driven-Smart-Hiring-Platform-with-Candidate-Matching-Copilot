@@ -1,5 +1,5 @@
 import json
-from database import Session, Candidate
+from database import Session, Candidate, Application
 from extraction.experience_extractor import years_from_text
 
 
@@ -94,6 +94,7 @@ def delete_candidate(candidate_id):
         row = session.get(Candidate, candidate_id)
         if row is None:
             return False
+        session.query(Application).filter(Application.candidate_id == candidate_id).delete()
         session.delete(row)
         session.commit()
         return True

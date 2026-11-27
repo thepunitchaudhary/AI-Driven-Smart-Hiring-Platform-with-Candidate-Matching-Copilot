@@ -54,3 +54,15 @@ def send_rejection_email(user):
         "Recruitment Copilot"
     )
     return send_email(user["email"], "Your Recruitment Copilot account request", body)
+
+
+def send_reset_email(user, link):
+    body = (
+        "Hello " + user["name"] + ",\n\n"
+        "We received a request to reset your Recruitment Copilot password.\n\n"
+        "Open this link to choose a new password. It works for 30 minutes and only once:\n"
+        + link + "\n\n"
+        "If you did not ask for this, you can ignore this email. Your password will stay the same.\n\n"
+        "Recruitment Copilot"
+    )
+    return send_email(user["email"], "Reset your Recruitment Copilot password", body)

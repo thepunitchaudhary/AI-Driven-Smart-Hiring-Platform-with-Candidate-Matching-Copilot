@@ -2,7 +2,7 @@
 
 A web platform that reads candidate resumes (PDF and DOCX), extracts the key details, and saves them as structured candidate profiles. HR managers and candidates each get their own login portal, and an admin approves new accounts.
 
-> **Current status: Milestone 1 complete** (Resume Parsing and Candidate Profiling). Job description analysis, candidate matching, skill gap reports, interview tools and analytics are planned for the next milestones.
+> **Current status: Milestone 1 complete** (Resume Parsing and Candidate Profiling). **Milestone 2 is built** (job description analysis, candidate matching, hiring score and skill-gap reports); with the real embedding model it scores 91.7% matching accuracy on the generated test set, against the 85% target (see `MATCHING_REPORT.md`). Interview tools and analytics are planned for the next milestones.
 
 ## Features
 
@@ -11,6 +11,12 @@ A web platform that reads candidate resumes (PDF and DOCX), extracts the key det
 - Structured candidate profiles stored in **PostgreSQL** (hosted on Neon, or a local PostgreSQL)
 - Dashboard with resumes processed, fields found, complete profiles and unique skills
 - Candidate search by name, email or skill
+- **Job postings:** HR or the admin posts a job, and the admin approves HR's jobs before they go live
+- **Skills picked from a job description** (required and preferred skills, experience and education)
+- **Candidate-job matching** with a match score and hiring recommendation
+- **Skill-gap analysis** with skill levels, suggested courses and estimated learning time
+- **Candidates apply for open jobs** and track their applications
+- **Resume form** with boxes for name, city, experience, education and skills, as well as file upload and pasted text
 - **Three portals** with role-based access: HR Manager, Candidate and Admin
 - **Admin approval:** new accounts start as pending, and an admin approves or rejects them
 - **Email notice** to the user when the account is approved or rejected (free with a Gmail App Password)
@@ -25,6 +31,7 @@ A web platform that reads candidate resumes (PDF and DOCX), extracts the key det
 | Backend | FastAPI (Python) |
 | Database | PostgreSQL (Neon or local) with SQLAlchemy |
 | Resume parsing | pdfplumber, python-docx, rules, spaCy, rapidfuzz, a 570+ skill list |
+| Matching | Rule-based scoring plus semantic similarity (sentence-transformers or scikit-learn TF-IDF) |
 | Authentication | PyJWT, PBKDF2 password hashing |
 
 ## How it works
@@ -62,9 +69,9 @@ Example profile returned as `candidate_profile`:
 
 | Portal | What they can do |
 |---|---|
-| HR Manager | Upload or type resumes, view and search candidates, delete candidates, see the dashboard |
-| Candidate | Upload or type their own resume and see only their own parsed profile |
-| Admin | Approve or reject new account requests |
+| HR Manager | Upload or enter resumes, view and search candidates, delete candidates, post jobs, see matches and skill gaps, shortlist applicants |
+| Candidate | Add their own resume, see open jobs with their match score, apply, and track applications |
+| Admin | Approve accounts and job posts, post jobs that go live at once, enter resumes, and use the same views as HR |
 
 Access is checked in the backend on every request, not only hidden in the screen.
 
@@ -125,7 +132,6 @@ python -m venv myvenv
 myvenv\Scripts\activate        # Windows
 # source myvenv/bin/activate   # macOS / Linux
 pip install -r requirements.txt
-python -m spacy download en_core_web_sm
 uvicorn main:app --reload
 ```
 
@@ -175,23 +181,36 @@ APP_URL=http://localhost:5173
 
 Never put the app password in the code or on GitHub.
 
+## Forgot password
+
+On the sign-in page, **Forgot password?** asks for the account email and sends a reset link by email.
+
+- The link works for 30 minutes and only once. A new request cancels the old link.
+- The link opens a page where the user types a new password twice.
+- The page always shows the same message, whether or not the email is registered, so nobody can find out who has an account.
+- Only a hash of the reset token is stored in the database.
+
+It uses the same email settings as account approval (see "Email notifications" above), plus `APP_URL` in `.env`, which is the address placed in the link. If email is not set up, the backend prints the reset link in its terminal, so you can still test the flow on your own computer.
+
 ## API endpoints
 
 | Method | Endpoint | Access |
 |---|---|---|
-| POST | `/api/register` | Public (account starts as pending) |
-| POST | `/api/login` | Public |
+| POST | `/api/register`, `/api/login`, `/api/forgot-password`, `/api/reset-password` | Public |
 | GET | `/api/me` | Any logged-in user |
-| POST | `/api/upload_resume` | HR Manager, Candidate |
-| POST | `/api/parse_text` | HR Manager, Candidate |
-| GET | `/api/candidates` | HR Manager |
-| GET | `/api/candidates/{id}/profile` | HR Manager |
-| GET | `/api/stats` | HR Manager |
-| DELETE | `/api/candidates/{id}` | HR Manager |
-| GET | `/api/admin/users?status=pending` | Admin |
-| POST | `/api/admin/users/{id}/approve` | Admin |
-| POST | `/api/admin/users/{id}/reject` | Admin |
-| GET | `/api/admin/db` | Admin (shows which database is in use) |
+| POST | `/api/upload_resume`, `/api/parse_text`, `/api/candidates/manual` | HR Manager, Admin, Candidate |
+| GET | `/api/candidates`, `/api/candidates/{id}/profile`, `/api/stats` | HR Manager, Admin |
+| DELETE | `/api/candidates/{id}` | HR Manager, Admin |
+| POST | `/api/jobs/analyze`, `/api/jobs` | HR Manager, Admin |
+| GET | `/api/jobs?status=` | HR Manager, Admin |
+| POST | `/api/jobs/{id}/approve`, `/api/jobs/{id}/reject` | Admin |
+| DELETE | `/api/jobs/{id}` | Admin, or the HR Manager who posted it |
+| GET | `/api/jobs/{id}/matches`, `/api/jobs/{id}/skill-gap/{candidate_id}`, `/api/jobs/{id}/skill-gaps` | HR Manager, Admin |
+| POST | `/api/applications/{id}/status` | HR Manager, Admin |
+| GET | `/api/my/profile`, `/api/jobs/open`, `/api/my/applications` | Candidate |
+| POST | `/api/jobs/{id}/apply` | Candidate |
+| GET | `/api/admin/users`, `/api/admin/db` | Admin |
+| POST | `/api/admin/users/{id}/approve`, `/api/admin/users/{id}/reject` | Admin |
 
 ## Project structure
 
@@ -200,6 +219,17 @@ Never put the app password in the code or on GitHub.
 ├── main.py                  # FastAPI app and API routes
 ├── auth.py                  # Login, registration, approval, roles, JWT tokens
 ├── emailer.py               # Approval and rejection emails
+├── jobs_api.py              # Jobs, matching, skill gaps and applications
+├── matching/
+│   ├── embeddings.py        # Semantic similarity (sentence-transformers, with a TF-IDF fallback)
+│   ├── profile_text.py      # Turns a candidate and a job into text
+│   ├── scoring.py           # Match score and hiring recommendation
+│   ├── skill_gap.py         # Skill levels, courses and skill-gap report
+│   ├── matcher.py           # Ranks candidates for a job
+│   └── evaluate.py          # evaluate_candidate and rank_candidates in the Milestone 2 document's format
+├── jobs/
+│   └── jd_parser.py         # Picks skills, experience and education from a job description
+├── test_matching.py         # Matching accuracy test
 ├── queries.py               # Candidate list, stats, final profile JSON, delete
 ├── requirements.txt         # Python packages
 ├── .env.example             # Example settings (copy to .env)
@@ -245,6 +275,24 @@ The parser scored 100% on 70 generated PDF and DOCX test resumes with known corr
 - Resumes that contain no name return an empty name instead of a guess.
 - Two-column PDF layouts can mix up the text order.
 
+## Semantic matching
+
+The match score combines skill matching with how similar the candidate's profile text is to the job text. By default the app uses scikit-learn TF-IDF, which needs no download and is what `requirements.txt` installs. This keeps the deployment small, because embeddings need PyTorch.
+
+For embedding-based matching (model `all-MiniLM-L6-v2`), install the optional packages once, on a machine with enough memory:
+
+```bash
+pip install -r requirements-semantic.txt
+```
+
+The first start downloads PyTorch and a model of about 100 MB, so it needs internet. If the package is missing or the model cannot be loaded, the app falls back to TF-IDF. Check which engine is in use:
+
+```bash
+python -c "from matching.embeddings import engine_name; print(engine_name())"
+```
+
+The Matching page also shows the engine name. If the model cannot be loaded, the app falls back to TF-IDF and keeps working.
+
 ## Optional: pyresparser
 
 pyresparser can be merged with the parser to fill in missing fields. It is off by default because it is an old library.
@@ -256,12 +304,26 @@ python -m nltk.downloader stopwords punkt words averaged_perceptron_tagger maxen
 
 Then add `USE_PYRESPARSER=true` to your `.env` file.
 
+## Deployment settings
+
+Set these on the host. All are optional for local use.
+
+| Setting | Where | What it does |
+|---|---|---|
+| `SECRET_KEY` | backend | Signs login tokens. **Must be set to a long random value in production**. The app prints a warning if the built-in development key is in use. |
+| `FRONTEND_ORIGINS` | backend | Comma-separated website addresses allowed to call the API, for example `https://myapp.vercel.app`. Default: `http://localhost:5173,http://127.0.0.1:5173`. |
+| `APP_URL` | backend | The website address placed in password-reset and approval emails. |
+| `MAX_UPLOAD_MB` | backend | Largest resume file accepted. Default: 10. |
+| `VITE_API_URL` | frontend, set at build time | The backend address, for example `https://my-api.onrender.com` (no trailing slash). Default: `http://127.0.0.1:8000`. |
+
+Sign-in and password-reset requests are limited to 8 attempts per 15 minutes for each address and email.
+
 ## Roadmap
 
 | Milestone | Scope | Status |
 |---|---|---|
 | 1 | Resume parsing and candidate profiling, login portals | Done |
-| 2 | Job description analysis, candidate matching, skill gap analysis | Planned |
+| 2 | Job description analysis, candidate matching, skill gap analysis | Built and tested: 91.7% matching accuracy on the generated test set, target 85% (see `MATCHING_REPORT.md`) |
 | 3 | Interview question generation, AI interview simulation | Planned |
 | 4 | Voice screening, recruitment analytics dashboard, ATS integration | Planned |
 

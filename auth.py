@@ -3,7 +3,7 @@ import hmac
 import os
 import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import jwt
 from fastapi import Depends, HTTPException
@@ -13,6 +13,8 @@ from sqlalchemy import Column, Integer, String, DateTime, inspect, text
 from database import Base, engine, Session
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-secret-key-please-set-your-own-in-env-file")
+if SECRET_KEY.startswith("dev-only"):
+    print("[security] WARNING: SECRET_KEY is not set, so the built-in development key is in use. Set SECRET_KEY in .env or the host settings before deploying.")
 SIGNUP_ROLES = ["hr", "candidate"]
 
 
@@ -28,7 +30,19 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.now)
 
 
+class PasswordReset(Base):
+    __tablename__ = "password_resets"
+
+    reset_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer)
+    token_hash = Column(String(64))
+    expires_at = Column(DateTime)
+    used = Column(Integer, default=0)
+
+
 Base.metadata.create_all(engine)
+
+RESET_MINUTES = 30
 
 
 def add_missing_columns():
@@ -103,6 +117,36 @@ def authenticate(email, password, role):
         if user.status == "rejected":
             raise PermissionError("Your account request was rejected by the admin")
         return user_to_dict(user), create_token(user)
+
+
+def hash_token(token):
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def create_reset_token(email):
+    with Session() as session:
+        user = session.query(User).filter(User.email == email.strip().lower()).first()
+        if user is None:
+            return None
+        session.query(PasswordReset).filter(PasswordReset.user_id == user.user_id, PasswordReset.used == 0).delete()
+        token = secrets.token_urlsafe(32)
+        session.add(PasswordReset(user_id=user.user_id, token_hash=hash_token(token),
+                                  expires_at=datetime.now() + timedelta(minutes=RESET_MINUTES), used=0))
+        session.commit()
+        return user_to_dict(user), token
+
+
+def reset_password(token, new_password):
+    if len(new_password) < 6:
+        raise ValueError("Password must be at least 6 characters")
+    with Session() as session:
+        row = session.query(PasswordReset).filter(PasswordReset.token_hash == hash_token(token)).first()
+        if row is None or row.used or row.expires_at < datetime.now():
+            raise ValueError("This reset link is invalid or has expired. Please request a new one.")
+        user = session.get(User, row.user_id)
+        user.password_hash = hash_password(new_password)
+        row.used = 1
+        session.commit()
 
 
 def seed_admin():

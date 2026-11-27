@@ -9,3 +9,6 @@ PyJWT
 python-dotenv
 spacy
 rapidfuzz
+scikit-learn
+numpy
+sentence-transformers

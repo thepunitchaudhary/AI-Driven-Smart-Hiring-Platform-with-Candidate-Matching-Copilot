@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Wand2, Loader2 } from "lucide-react";
 import { parseText } from "./api";
+import { toast } from "./components/toast";
+import { Button } from "./components/ui";
 
 const SAMPLE = `Name: Riya Sharma
 Email: riya@example.com
@@ -32,9 +34,11 @@ function TypeResume({ onParsed }) {
     setLoading(true);
     try {
       const data = await parseText(text);
+      toast("Resume text parsed into a candidate profile.", "success");
       onParsed(data);
     } catch (err) {
       setError(err.message);
+      toast(err.message, "danger");
     }
     setLoading(false);
   }
@@ -47,13 +51,20 @@ function TypeResume({ onParsed }) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={"Type or paste your resume details here, for example:\n\n" + SAMPLE}
+        aria-label="Resume text"
       />
       {error && <div className="alert">{error}</div>}
       <div className="type-actions">
-        <button className="btn" onClick={handleParse} disabled={loading || text.trim() === ""}>
-          {loading ? <Loader2 size={16} className="spin" /> : <Wand2 size={16} />} Parse details
-        </button>
+        <Button
+          Icon={loading ? Loader2 : Wand2}
+          iconClassName={loading ? "spin" : ""}
+          onClick={handleParse}
+          disabled={loading || text.trim() === ""}
+        >
+          {loading ? "Parsing..." : "Parse details"}
+        </Button>
         <button className="link" type="button" onClick={() => setText(SAMPLE)}>Use sample text</button>
+        <span className="char-count">{text.trim().length.toLocaleString()} characters</span>
       </div>
     </div>
   );
